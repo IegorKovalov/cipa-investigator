@@ -2,6 +2,7 @@ import time
 from playwright.sync_api import sync_playwright
 from trackers import get_tracker
 from agent_navigator import decide_next_action
+from agent_consent import detect_consent_banner
 
 
 def _dismiss_modals(page):
@@ -25,30 +26,6 @@ def _dismiss_modals(page):
             continue
 
 
-def _detect_consent_banner(page) -> dict:
-    """
-    Checks whether a real consent banner is present.
-    Returns banner info. We don't chase the decline button —
-    presence/absence of a banner and its timing is the legal signal.
-    """
-    result = {"detected": False, "selector": None}
-    # Only selectors that indicate real consent UI (not footer links)
-    for sel in ["[id*='cookie']", "[class*='cookie']", "[id*='consent']", "[class*='consent']", "[id*='gdpr']", "[aria-label*='cookie']", "[aria-label*='consent']"]:
-        try:
-            el = page.query_selector(sel)
-            if not el or not el.is_visible():
-                continue
-            box = el.bounding_box()
-            if not box or box["width"] < 200 or box["height"] < 50:
-                continue
-            if not el.query_selector("button"):
-                continue
-            result["detected"] = True
-            result["selector"] = sel
-            return result
-        except:
-            continue
-    return result
 
 
 def capture(url: str, headless: bool = False) -> dict:
@@ -108,15 +85,16 @@ def capture(url: str, headless: bool = False) -> dict:
         pre_banner_count = len(evidence["requests"])
         print(f"    Screenshot captured")
 
-        # Phase 2: Consent banner check
+        # Phase 2: Consent banner check (Claude vision agent)
         print(f"\n[2] Checking for consent banner...")
-        banner = _detect_consent_banner(page)
+        banner_screenshot = page.screenshot(full_page=False)
+        banner = detect_consent_banner(banner_screenshot)
         if banner["detected"]:
             banner_time = round(time.time() - start_time, 3)
             evidence["consent"]["banner_detected"] = True
             evidence["consent"]["banner_time"] = banner_time
             evidence["consent"]["requests_before_banner"] = evidence["requests"][:pre_banner_count]
-            evidence["screenshots"]["banner"] = page.screenshot(full_page=False)
+            evidence["screenshots"]["banner"] = banner_screenshot
             print(f"    Banner detected at {banner_time}s — {len(evidence['consent']['requests_before_banner'])} trackers fired before it")
         else:
             evidence["consent"]["requests_before_banner"] = evidence["requests"][:pre_banner_count]

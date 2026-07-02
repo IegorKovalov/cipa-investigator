@@ -1,4 +1,5 @@
 import sys
+import os
 from browser import capture
 from classifier import classify
 from agent_legal import write_legal_narrative
@@ -27,3 +28,4 @@ print(f"Pen register violations (§638.51): {findings['summary']['pen_register_c
 print(f"Consent mechanism present:      {'No' if findings['summary']['no_consent_mechanism'] else 'Yes'}")
 print(f"Trackers before banner:         {findings['summary']['trackers_before_banner']}")
 print(f"\nEvidence package saved to: {output}")
+os.system(f"open {output}")
