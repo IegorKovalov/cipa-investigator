@@ -1,3 +1,8 @@
+---
+name: cipa-investigator
+description: Scans a website for California Invasion of Privacy Act (CIPA) violations and generates a law-firm-ready PDF evidence package. Use when asked to investigate a website for privacy violations, tracking, wiretap, or pen register issues.
+---
+
 # CIPA Investigator
 
 Scans a website for California Invasion of Privacy Act (CIPA) violations and generates a law-firm-ready PDF evidence package.
