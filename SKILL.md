@@ -5,54 +5,51 @@ description: Scans a website for California Invasion of Privacy Act (CIPA) viola
 
 # CIPA Investigator
 
-Scans a website for California Invasion of Privacy Act (CIPA) violations and generates a law-firm-ready PDF evidence package.
+Investigates a website for CIPA violations (§631 wiretap, §638.51 pen
+register) and produces a litigation-ready PDF evidence package with a
+case confidence score.
 
-## Usage
+## How to run an investigation
 
-```
-Run the CIPA investigator on <URL>
-```
+You are the investigator. Use the `cipa-investigator` MCP tools
+(`start_investigation`, `take_screenshot`, `navigate`, `get_network_log`,
+`lookup_tracker`, `score_confidence`, `generate_report`, ...).
 
-or directly:
+**Before starting, read these three files — they are the methodology:**
 
-```bash
-python test_phase1.py <url>
-```
+1. `prompts/orchestrator.md` — investigation flow and stopping criteria
+2. `prompts/consent_analysis.md` — how to reason about consent timing
+3. `prompts/legal_reasoning.md` — statute mapping + findings JSON schema
 
-## What It Does
+Then: `start_investigation(url)` → document the pre-consent state →
+walk communication surfaces (forms, chat, search) → classify every
+third-party host → `score_confidence` → write the narratives →
+`generate_report` → `end_investigation`.
 
-1. Opens a real Chromium browser simulating a California user (LA geolocation, en-US locale)
-2. Intercepts all third-party network requests as the page loads
-3. Detects consent banners and records timing relative to tracker firing
-4. Navigator Agent (Claude) autonomously browses high-value pages: checkout, forms, chat widgets
-5. Legal Writer Agent (Claude) writes attorney-facing legal analysis for each finding
-6. Generates `evidence_package.pdf` with violation findings, consent analysis, and technical appendix
+There is no fixed iteration count — you decide when the evidence is
+sufficient. Every claim must trace to a timestamped request or screenshot
+from the session.
 
 ## Output
 
-`evidence_package.pdf` containing:
-- Cover page with executive summary and violation count
-- Consent analysis with screenshot
-- §631 Wiretap violations (session replay tools: Hotjar, FullStory, Clarity)
-- §638.51 Pen Register violations (ad pixels: Meta, Google, TikTok, Snapchat, LinkedIn)
-- Technical appendix with full request log
+`evidence_package.pdf`:
+- Executive summary + violation counts + case confidence score (0-100)
+- Consent analysis with timing evidence and screenshots
+- §631 findings (session replay, third-party chat) with attorney narratives
+- §638.51 findings (ad pixels, analytics) with attorney narratives
+- Confidence score breakdown and technical appendix (request log)
 
 ## Requirements
 
 ```bash
-pip install playwright anthropic reportlab
+pip install "mcp[cli]" playwright reportlab
 playwright install chromium
-export ANTHROPIC_API_KEY=your_key_here
 ```
 
-## Agents
+MCP server is registered in `.mcp.json` (stdio, local). If the tools are
+missing, restart Claude Code in this directory to pick it up.
 
-| Agent | File | Role |
-|---|---|---|
-| Navigator Agent | agent_navigator.py | Analyzes page screenshots, decides where to browse next |
-| Legal Writer Agent | agent_legal.py | Writes attorney-quality legal narrative for each tracker |
-
-## Covered Statutes
+## Covered statutes
 
 - **§631** — Wiretap: third-party interception of communication contents in real time
 - **§638.51** — Pen Register: third-party recording of routing/navigation metadata

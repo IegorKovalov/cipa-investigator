@@ -64,12 +64,32 @@ def generate(findings: dict, screenshots: dict, output_path: str) -> str:
     pr = summary["pen_register_count"]
     no_consent = summary["no_consent_mechanism"]
 
+    # Three-state consent label. 'too_late' means a banner exists but does
+    # not gate the trackers — still adverse, so it reads red like 'NO'.
+    consent_status = findings.get("consent_analysis", {}).get("status")
+    if consent_status == "present":
+        consent_label, consent_adverse = "YES", False
+    elif consent_status == "too_late":
+        consent_label, consent_adverse = "PRESENT BUT NON-BLOCKING", True
+    else:  # 'absent' or missing
+        consent_label, consent_adverse = "NO", True
+    consent_value = Paragraph(consent_label, ParagraphStyle(
+        "consent_val", fontName="Helvetica", fontSize=10, leading=12,
+        textColor=ACCENT if consent_adverse else DARK,
+    ))
+
     summary_data = [
         ["Trackers Identified", str(total)],
         ["§631 Wiretap Violations", str(wt)],
         ["§638.51 Pen Register Violations", str(pr)],
-        ["Consent Mechanism Present", "NO" if no_consent else "YES"],
+        ["Consent Mechanism Present", consent_value],
     ]
+    confidence = findings.get("confidence")
+    if confidence:
+        summary_data.append([
+            "Case Confidence Score",
+            f"{confidence['score']}/100 ({confidence['tier'].upper()})",
+        ])
     summary_table = Table(summary_data, colWidths=[3.5 * inch, 1.5 * inch])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GRAY),
@@ -78,7 +98,6 @@ def generate(findings: dict, screenshots: dict, output_path: str) -> str:
         ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("TEXTCOLOR", (1, 2), (1, 2), ACCENT if wt > 0 else DARK),
         ("TEXTCOLOR", (1, 3), (1, 3), ACCENT if pr > 0 else DARK),
-        ("TEXTCOLOR", (1, 4), (1, 4), ACCENT if no_consent else DARK),
         ("ROWBACKGROUNDS", (0, 0), (-1, -1), [LIGHT_GRAY, colors.white]),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
         ("PADDING", (0, 0), (-1, -1), 8),
@@ -90,6 +109,22 @@ def generate(findings: dict, screenshots: dict, output_path: str) -> str:
     if findings.get("executive_summary"):
         story.append(Spacer(1, 0.1 * inch))
         story.append(Paragraph(findings["executive_summary"], s["body"]))
+
+    # Confidence score breakdown
+    if confidence and confidence.get("breakdown"):
+        story.append(Paragraph("CASE CONFIDENCE ASSESSMENT", s["section"]))
+        rows = [[item["reason"], f"{item['points']:+d}"] for item in confidence["breakdown"]]
+        rows.append(["TOTAL", f"{confidence['score']}/100"])
+        ct = Table(rows, colWidths=[4.5 * inch, 1.0 * inch])
+        ct.setStyle(TableStyle([
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, 0), (-1, -1), DARK),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, LIGHT_GRAY]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cccccc")),
+            ("PADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(ct)
 
     # Consent Analysis
     story.append(Paragraph("CONSENT ANALYSIS", s["section"]))

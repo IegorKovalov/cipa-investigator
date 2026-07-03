@@ -8,9 +8,11 @@ This repo contains the **CIPA Investigator skill** — a tool that scans website
 
 ## Current State
 
-A working POC is in `cipa-investigator/`. It detects §631 (Wiretap) and §638.51 (Pen Register) violations and produces a law-firm-ready PDF. It has been tested successfully on monday.com, sephora.com, and rei.com.
+The MCP-based agentic architecture is **built and validated end-to-end**: `mcp_server.py` exposes 12 tools (stateful browser session + deterministic reference tools), methodology lives in `prompts/`, roles are documented in `AGENTS.md`, and the server is registered in `.mcp.json`. Claude orchestrates; Python is tools only. The legacy deterministic pipeline has been deleted.
 
-**The immediate task is to redesign this into a fully agentic, MCP-based architecture.** The current version has too much deterministic Python logic. The goal is: Claude as orchestrator, everything else as MCP tools Claude calls.
+**Validated on monday.com** (2026-07-03): a full investigation ran through the MCP tools — CA-simulated session, consent-timing analysis, keystroke test on the signup form, classification of ~15 third-party hosts, deterministic scoring (87/100 STRONG), and a 7-page PDF. Confirmed Hotjar session-replay wiretap (§631) plus 12 pen registers (§638.51) firing before/without consent.
+
+**Next:** run the remaining known-good targets (sephora.com, rei.com); consider surfacing "banner present but non-blocking" more explicitly in the PDF summary (currently shows "Consent Mechanism Present: YES" for the `too_late` case).
 
 ## Legal Context (Read This First)
 
@@ -33,27 +35,29 @@ Flat — the repo root IS the project, no nested folders. One git repo, remote: 
 ```
 koladin/
 ├── CLAUDE.md                          ← You are here
-├── SKILL.md                           ← Skill definition (uploaded to Claude Code)
-├── AGENTS.md                          ← (to be created)
-├── domain_study.docx                  ← Legal research document
-├── technical_design.docx              ← Architecture document
+├── SKILL.md                           ← Skill definition (drives the MCP flow)
+├── AGENTS.md                          ← Orchestrator + tool roles, inputs, outputs
+├── .mcp.json                          ← Registers the local MCP server with Claude Code
+├── mcp_server.py                      ← FastMCP server exposing 12 tools
+├── tools/
+│   ├── browser_tool.py                ← Stateful Playwright session (start/navigate/type/screenshot/network log)
+│   ├── tracker_tool.py                ← lookup_tracker + deterministic confidence scoring
+│   └── report_tool.py                 ← Validates findings JSON → reporter.py
+├── prompts/
+│   ├── orchestrator.md                ← Investigation methodology + stopping criteria
+│   ├── consent_analysis.md            ← Consent-timing reasoning
+│   └── legal_reasoning.md             ← Statute mapping + findings JSON schema
 ├── trackers.py                        ← Tracker database (wiretap/pen_register classification)
-├── browser.py                         ← Playwright automation (3 phases)
-├── classifier.py                      ← Maps evidence to §631/§638.51 findings
-├── agent_consent.py                   ← Agent 1: Claude vision detects consent banners
-├── agent_navigator.py                 ← Agent 2: Claude vision decides where to browse
-├── agent_legal.py                     ← Agent 3: Claude writes attorney narratives
-├── reporter.py                        ← ReportLab PDF generator
-└── test_phase1.py                     ← Entry point: python test_phase1.py <url>
+├── reporter.py                        ← ReportLab PDF generator (+ confidence score section)
+├── domain_study.docx                  ← Legal research document
+└── technical_design.docx              ← Architecture document
 ```
 
-## The Three Current Agents
+## The Orchestrator
 
-| Agent | File | Role |
-|---|---|---|
-| Consent Agent | `agent_consent.py` | Looks at screenshot, detects any consent banner visually |
-| Navigator Agent | `agent_navigator.py` | Decides where to browse next (max 5 iterations) |
-| Legal Writer Agent | `agent_legal.py` | Writes attorney narratives + executive summary |
+Claude runs the whole investigation via the MCP tools; the three former
+agents (consent detection, navigation, legal writing) are now absorbed
+into that single orchestrator role. See `AGENTS.md` for the full breakdown.
 
 ## What Needs To Be Built Next
 
@@ -104,18 +108,19 @@ Score: 87/100
 
 ### MCP Server Approach
 - Local MCP server for now (move to hosted later — same architecture)
-- Tools exposed via MCP: browse_page, lookup_tracker, classify_violation, score_confidence, generate_report
-- Claude Code connects to the local MCP server
+- 12 tools exposed via MCP: stateful browser session (start_investigation, navigate, click_element, type_text, scroll_page, take_screenshot, get_network_log, get_investigation_status, end_investigation) + reference tools (lookup_tracker, score_confidence, generate_report)
+- Claude Code connects to the local MCP server via `.mcp.json` (loaded at startup — restart Claude Code in this dir if tools are missing)
 
-## How To Run Current Version
+## How To Run
 
-```bash
-source ~/.zshrc
-cd /Users/iegorkovalov/claude-code/koladin
-python test_phase1.py https://www.monday.com
+Restart Claude Code in this directory so it loads `.mcp.json`, then ask:
+
+```
+Run the CIPA investigator on https://www.monday.com
 ```
 
-Output opens automatically in Preview as `evidence_package.pdf`.
+Claude drives the investigation through the MCP tools (methodology in
+`prompts/`), writes `evidence_package.pdf`, and ends the session.
 
 ## GitHub
 https://github.com/IegorKovalov/cipa-investigator
@@ -126,7 +131,8 @@ https://github.com/IegorKovalov/cipa-investigator
 - ReportLab for PDF — programmatic, no external dependencies
 - PDF is the primary deliverable (JSON output planned for future versions)
 - Local MCP server first, hosted later
-- Model: claude-sonnet-4-6 for all agents currently
+- Confidence scoring and classification stay deterministic (reproducibility for a legal deliverable); Claude's judgment is in evidence-gathering and narratives
+- Claude Code itself is the orchestrator model — no per-agent model config anymore
 
 ## Environment
 - ANTHROPIC_API_KEY in ~/.zshrc
