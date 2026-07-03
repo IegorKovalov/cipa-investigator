@@ -11,6 +11,10 @@ case confidence score.
 
 ## How to run an investigation
 
+The target URL is provided as the invocation argument (e.g.
+`/cipa-investigator https://www.sephora.com`). If no URL was given, ask
+for one before starting.
+
 You are the investigator. Use the `cipa-investigator` MCP tools
 (`start_investigation`, `take_screenshot`, `navigate`, `get_network_log`,
 `lookup_tracker`, `score_confidence`, `generate_report`, ...).

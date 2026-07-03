@@ -35,9 +35,13 @@ Flat — the repo root IS the project, no nested folders. One git repo, remote: 
 ```
 koladin/
 ├── CLAUDE.md                          ← You are here
-├── SKILL.md                           ← Skill definition (drives the MCP flow)
 ├── AGENTS.md                          ← Orchestrator + tool roles, inputs, outputs
 ├── .mcp.json                          ← Registers the local MCP server with Claude Code
+├── .claude/
+│   ├── skills/cipa-investigator/
+│   │   └── SKILL.md                   ← The skill (auto-triggers; also /cipa-investigator <url>)
+│   └── commands/
+│       └── cipa.md                    ← Slash command: /cipa <url>
 ├── mcp_server.py                      ← FastMCP server exposing 12 tools
 ├── tools/
 │   ├── browser_tool.py                ← Stateful Playwright session (start/navigate/type/screenshot/network log)
