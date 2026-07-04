@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-evidence_package.pdf
+evidence_package*.pdf
 .env
 .DS_Store
 ~$*

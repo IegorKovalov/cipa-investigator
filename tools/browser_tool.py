@@ -72,6 +72,11 @@ class InvestigationSession:
             "method": request.method,
             "url": request.url,
             "has_post_data": bool(post_data),
+            # §631 evidence lives in POST bodies (intercepted keystrokes,
+            # form inputs, chat messages). Keep a bounded copy so it can be
+            # inspected — this is what distinguishes a wiretap from a
+            # pen register, which only needs URL params.
+            "post_data": post_data[:4000],
         })
 
     async def start(self, url: str, headless: bool = True) -> dict:
@@ -115,9 +120,42 @@ class InvestigationSession:
         state["new_requests_triggered"] = len(self.requests) - before
         return state
 
+    async def _dismiss_overlays(self):
+        """Best-effort: press Escape to close modal overlays that intercept
+        clicks. Real sites stack sign-in / country / cookie modals over the
+        content we need to reach."""
+        for _ in range(2):
+            await self.page.keyboard.press("Escape")
+            await self.page.wait_for_timeout(300)
+
+    async def press_key(self, key: str) -> dict:
+        """Press a keyboard key (e.g. 'Escape' to close a modal, 'Enter' to
+        submit a form). Accepts Playwright key names."""
+        before = len(self.requests)
+        await self.page.keyboard.press(key)
+        await self.page.wait_for_timeout(800)
+        self._note(f"pressed {key}")
+        state = await self.page_state()
+        state["new_requests_triggered"] = len(self.requests) - before
+        return state
+
     async def click_text(self, text: str) -> dict:
         before = len(self.requests)
-        await self.page.get_by_text(text, exact=False).first.click(timeout=5000)
+
+        async def attempt():
+            try:
+                await self.page.get_by_text(text, exact=False).first.click(timeout=4000)
+                return True
+            except Exception:
+                return False
+
+        ok = await attempt()
+        if not ok:
+            # A modal overlay may be intercepting the click — dismiss and retry.
+            await self._dismiss_overlays()
+            ok = await attempt()
+        if not ok:
+            raise RuntimeError(f"Could not click '{text}' (even after dismissing overlays)")
         await self.page.wait_for_timeout(1500)
         self._note(f"clicked '{text}'")
         state = await self.page_state()
@@ -127,25 +165,42 @@ class InvestigationSession:
     async def type_text(self, field: str, text: str) -> dict:
         """Type into an input matched by placeholder, label, or name attribute.
         Typed character-by-character — session replay tools capture keystrokes,
-        so realistic typing is itself evidence generation."""
+        so realistic typing is itself evidence generation. Tries every visible
+        candidate (not just the first match) and dismisses blocking overlays."""
         before = len(self.requests)
-        target = None
-        for locator in (
+        strategies = [
             self.page.get_by_placeholder(field, exact=False),
             self.page.get_by_label(field, exact=False),
             self.page.locator(f"input[name*='{field}' i]"),
             self.page.locator(f"input[type='{field}']"),
-        ):
-            try:
-                if await locator.first.is_visible(timeout=1500):
-                    target = locator.first
-                    break
-            except Exception:
-                continue
-        if target is None:
-            raise RuntimeError(f"No visible input matching '{field}' found")
-        await target.click()
-        await target.press_sequentially(text, delay=80)
+        ]
+
+        async def try_fill():
+            for loc in strategies:
+                try:
+                    count = await loc.count()
+                except Exception:
+                    count = 0
+                for i in range(min(count, 5)):
+                    cand = loc.nth(i)
+                    try:
+                        if not await cand.is_visible():
+                            continue
+                        await cand.click(timeout=3000)
+                        await cand.fill("")
+                        await cand.press_sequentially(text, delay=80)
+                        return True
+                    except Exception:
+                        continue
+            return False
+
+        ok = await try_fill()
+        if not ok:
+            # The visible candidate may be covered by a modal — dismiss and retry.
+            await self._dismiss_overlays()
+            ok = await try_fill()
+        if not ok:
+            raise RuntimeError(f"No typeable input matching '{field}' (after dismissing overlays)")
         await self.page.wait_for_timeout(1000)
         self._note(f"typed into '{field}'")
         state = await self.page_state()
@@ -202,6 +257,39 @@ class InvestigationSession:
             "showing": "new since last call" if new_only else "entire session",
             "third_party_requests_total": len(self.requests),
             "hosts": entries,
+        }
+
+    def inspect_post_bodies(self, host_contains: str, text_contains: str = "", limit: int = 15) -> dict:
+        """Return the POST bodies sent to third-party hosts whose name contains
+        `host_contains`. This is the §631 evidence tool: if you typed a value
+        (email, search term, chat message) and it appears verbatim in a body
+        here, that is a third party intercepting communication contents.
+        Optionally filter to bodies containing `text_contains` (e.g. the exact
+        string you typed) to prove capture."""
+        matches = []
+        for r in self.requests:
+            if host_contains.lower() not in r["host"].lower():
+                continue
+            body = r.get("post_data") or ""
+            if not body:
+                continue
+            if text_contains and text_contains.lower() not in body.lower():
+                continue
+            matches.append({
+                "t": r["t"],
+                "host": r["host"],
+                "method": r["method"],
+                "url": r["url"][:140],
+                "post_body": body,
+                "contains_target": bool(text_contains) and text_contains.lower() in body.lower(),
+            })
+            if len(matches) >= limit:
+                break
+        return {
+            "host_filter": host_contains,
+            "text_filter": text_contains or None,
+            "post_bodies_found": len(matches),
+            "matches": matches,
         }
 
     def status(self) -> dict:

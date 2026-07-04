@@ -92,6 +92,15 @@ async def scroll_page(times: int = 1) -> str:
 
 
 @mcp.tool()
+async def press_key(key: str) -> str:
+    """Press a keyboard key on the live page. Use 'Escape' to dismiss a
+    modal/overlay (sign-in, country, or cookie popups that block clicks),
+    'Enter' to submit a focused form. Accepts Playwright key names."""
+    _require_session()
+    return _json(await SESSION.press_key(key))
+
+
+@mcp.tool()
 def get_network_log(new_only: bool = True) -> str:
     """Third-party requests captured by the session, grouped by host with
     first/last seen timestamps, request counts, methods, and whether POST
@@ -100,6 +109,19 @@ def get_network_log(new_only: bool = True) -> str:
     new_only=True returns only activity since the previous call."""
     _require_session()
     return _json(SESSION.network_log(new_only=new_only))
+
+
+@mcp.tool()
+def inspect_post_bodies(host_contains: str, text_contains: str = "", limit: int = 15) -> str:
+    """Inspect the POST request bodies sent to third-party hosts matching
+    `host_contains`. This is the §631 evidence tool: after typing an email,
+    search term, or chat message, look for that exact string here. If it
+    appears verbatim in a body sent to a third party, that third party is
+    intercepting communication contents (wiretap §631) — as opposed to a
+    pen register (§638.51), whose evidence is in URL parameters. Pass the
+    string you typed as `text_contains` to prove capture."""
+    _require_session()
+    return _json(SESSION.inspect_post_bodies(host_contains, text_contains, limit))
 
 
 @mcp.tool()

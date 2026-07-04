@@ -33,10 +33,12 @@ is a timeline of one continuous visit, so all timestamps share one clock.
 | `start_investigation` | url → opens CA-simulated browser, starts clock + network capture |
 | `take_screenshot` | label → image + capture time; stored for the PDF |
 | `navigate` | path or URL → new page state + requests triggered |
-| `click_element` | visible text → clicks it (banners, chat launchers, links) |
-| `type_text` | field hint + text → types keystroke-by-keystroke (generates §631 evidence) |
+| `click_element` | visible text → clicks it (banners, chat launchers, links); auto-dismisses blocking overlays and retries |
+| `type_text` | field hint + text → types keystroke-by-keystroke (generates §631 evidence); tries every visible candidate, dismisses overlays |
+| `press_key` | key name → keyboard press ('Escape' to close modals, 'Enter' to submit) |
 | `scroll_page` | times → reveals lazy content/trackers |
-| `get_network_log` | new_only → third-party requests grouped by host, timestamped, known-tracker annotated |
+| `get_network_log` | new_only → third-party requests grouped by host, timestamped, known-tracker annotated (§638.51 evidence: URL params) |
+| `inspect_post_bodies` | host + text filter → POST bodies sent to a third party (§631 evidence: shows intercepted contents; confirms a typed string was captured) |
 | `get_investigation_status` | — → session timeline, screenshot labels, totals |
 | `end_investigation` | — → closes browser (screenshots survive for the report) |
 

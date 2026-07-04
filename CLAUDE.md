@@ -8,7 +8,7 @@ This repo contains the **CIPA Investigator skill** — a tool that scans website
 
 ## Current State
 
-The MCP-based agentic architecture is **built and validated end-to-end**: `mcp_server.py` exposes 12 tools (stateful browser session + deterministic reference tools), methodology lives in `prompts/`, roles are documented in `AGENTS.md`, and the server is registered in `.mcp.json`. Claude orchestrates; Python is tools only. The legacy deterministic pipeline has been deleted.
+The MCP-based agentic architecture is **built and validated end-to-end**: `mcp_server.py` exposes 14 tools (stateful browser session + deterministic reference tools), methodology lives in `prompts/`, roles are documented in `AGENTS.md`, and the server is registered in `.mcp.json`. Claude orchestrates; Python is tools only. The legacy deterministic pipeline has been deleted.
 
 **Validated on monday.com** (2026-07-03): a full investigation ran through the MCP tools — CA-simulated session, consent-timing analysis, keystroke test on the signup form, classification of ~15 third-party hosts, deterministic scoring (87/100 STRONG), and a 7-page PDF. Confirmed Hotjar session-replay wiretap (§631) plus 12 pen registers (§638.51) firing before/without consent.
 
@@ -42,7 +42,7 @@ koladin/
 │   │   └── SKILL.md                   ← The skill (auto-triggers; also /cipa-investigator <url>)
 │   └── commands/
 │       └── cipa.md                    ← Slash command: /cipa <url>
-├── mcp_server.py                      ← FastMCP server exposing 12 tools
+├── mcp_server.py                      ← FastMCP server exposing 14 tools
 ├── tools/
 │   ├── browser_tool.py                ← Stateful Playwright session (start/navigate/type/screenshot/network log)
 │   ├── tracker_tool.py                ← lookup_tracker + deterministic confidence scoring
@@ -112,7 +112,7 @@ Score: 87/100
 
 ### MCP Server Approach
 - Local MCP server for now (move to hosted later — same architecture)
-- 12 tools exposed via MCP: stateful browser session (start_investigation, navigate, click_element, type_text, scroll_page, take_screenshot, get_network_log, get_investigation_status, end_investigation) + reference tools (lookup_tracker, score_confidence, generate_report)
+- 14 tools exposed via MCP: stateful browser session (start_investigation, navigate, click_element, type_text, scroll_page, press_key, take_screenshot, get_network_log, inspect_post_bodies, get_investigation_status, end_investigation) + reference tools (lookup_tracker, score_confidence, generate_report). `inspect_post_bodies` is the §631 evidence tool (shows intercepted POST content); `press_key` dismisses blocking modals.
 - Claude Code connects to the local MCP server via `.mcp.json` (loaded at startup — restart Claude Code in this dir if tools are missing)
 
 ## How To Run
