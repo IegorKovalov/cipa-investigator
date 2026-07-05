@@ -3,11 +3,9 @@ Generates a law-firm-ready PDF evidence package from classified CIPA findings.
 Written for attorneys, not engineers.
 """
 
-import io
 import os
-from datetime import datetime
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.platypus import (
@@ -23,7 +21,6 @@ MID_GRAY = colors.HexColor("#999999")
 
 
 def _styles():
-    base = getSampleStyleSheet()
     return {
         "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=22, textColor=DARK, spaceAfter=6),
         "subtitle": ParagraphStyle("subtitle", fontName="Helvetica", fontSize=11, textColor=MID_GRAY, spaceAfter=4),
@@ -62,8 +59,6 @@ def generate(findings: dict, screenshots: dict, output_path: str) -> str:
     total = summary["total_trackers"]
     wt = summary["wiretap_count"]
     pr = summary["pen_register_count"]
-    no_consent = summary["no_consent_mechanism"]
-
     # Three-state consent label. 'too_late' means a banner exists but does
     # not gate the trackers — still adverse, so it reads red like 'NO'.
     consent_status = findings.get("consent_analysis", {}).get("status")
