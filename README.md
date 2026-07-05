@@ -26,13 +26,13 @@ folder. "Restart" means the Claude Code **session**, never the machine.
 ## One-time setup
 
 ```bash
-pip install "mcp[cli]" playwright reportlab pypdf
+pip install -r requirements.txt
 playwright install chromium
 ```
 
 The MCP server is registered in [.mcp.json](.mcp.json). It launches
-`mcp_server.py` with a specific Python interpreter — see "Different machine"
-below, because those paths are currently absolute.
+`mcp_server.py` with `python3` from the project folder — so no absolute
+paths, and the same config works on any machine (see "Different machine").
 
 ## Running an investigation
 
@@ -65,25 +65,19 @@ this folder. The skill, command, and MCP server all live in the repo.
 **Different machine:**
 
 1. `git clone https://github.com/IegorKovalov/cipa-investigator.git` and `cd` in.
-2. Install the dependencies (above) + `playwright install chromium`.
-3. Edit [.mcp.json](.mcp.json) for that machine — both paths are currently
-   absolute and user-specific:
-   ```json
-   {
-     "mcpServers": {
-       "cipa-investigator": {
-         "command": "/ABSOLUTE/PATH/TO/python",
-         "args": ["/ABSOLUTE/PATH/TO/repo/mcp_server.py"]
-       }
-     }
-   }
-   ```
-   Point `command` at the Python where you installed the deps
-   (`which python`) and `args` at this repo's `mcp_server.py`.
-4. Open Claude Code in the repo folder. `/cipa` and the MCP tools appear.
+2. `pip install -r requirements.txt` + `playwright install chromium`.
+3. Open Claude Code in the repo folder. `/cipa` and the MCP tools appear.
 
-Because `.claude/` is committed, the skill and slash command travel with the
-repo automatically — only `.mcp.json`'s local paths need adjusting per machine.
+No `.mcp.json` editing needed — it uses `python3` and a project-relative
+path, so it works as-is on any machine. `.claude/` (skill + slash command)
+travels with the repo too. The only requirement: `python3` must be the
+Python where you ran `pip install` (a virtualenv or Conda env is fine —
+just install into whatever `python3` your shell uses).
+
+If after a restart the CIPA tools don't appear, `python3` on that machine
+points somewhere without the packages. Fix: either `pip install -r
+requirements.txt` into that `python3`, or set `command` in `.mcp.json` to
+the full path from `which python3`.
 
 ## Output
 

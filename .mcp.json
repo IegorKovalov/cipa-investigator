@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "cipa-investigator": {
-      "command": "/Users/iegorkovalov/anaconda3/bin/python",
-      "args": ["/Users/iegorkovalov/claude-code/koladin/mcp_server.py"]
+      "command": "python3",
+      "args": ["mcp_server.py"]
     }
   }
 }
